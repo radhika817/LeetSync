@@ -5,7 +5,7 @@
  */
 
 import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage.js';
-import { verifyRepository } from '../utils/github.js';
+import { verifyRepo } from '../utils/github.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('LeetSync service worker installed.');
@@ -48,10 +48,7 @@ async function handleVerifyGithub(payload) {
       return { ok: false, error: 'No GitHub token provided or stored.' };
     }
 
-    const verification = await verifyRepository(activeToken, owner, repo);
-    if (!verification.ok) {
-      return { ok: false, error: verification.error };
-    }
+    const repoData = await verifyRepo(activeToken, owner, repo);
 
     // Save verified configuration
     const updates = {
@@ -68,7 +65,7 @@ async function handleVerifyGithub(payload) {
 
     return {
       ok: true,
-      data: verification.data
+      data: repoData
     };
   } catch (error) {
     return { ok: false, error: error.message };
