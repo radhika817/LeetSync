@@ -153,11 +153,29 @@ document.addEventListener('DOMContentLoaded', async () => {
           const time = formatRelativeTime(item.timestamp);
           const lang = escapeHtml(item.language || 'code');
           const title = escapeHtml(item.problemTitle || 'Unknown Problem');
+          const status = item.status || 'SUCCESS';
+          const statusLabel = formatStatusLabel(status);
+
+          let linkHtml = '';
+          if (item.commitUrl) {
+            linkHtml = `
+              <a href="${item.commitUrl}" target="_blank" rel="noopener noreferrer" class="history-link" title="Open file on GitHub">
+                View &rarr;
+              </a>
+            `;
+          }
+
           return `
-            <div class="history-item">
-              <span class="history-title" title="${title}">${title}</span>
-              <div class="history-meta">
-                <span class="history-lang">${lang}</span>
+            <div class="history-item status-${escapeHtml(status)}">
+              <div class="history-header">
+                <span class="history-title" title="${title}">${title}</span>
+                ${linkHtml}
+              </div>
+              <div class="history-footer">
+                <div class="history-badges">
+                  <span class="history-lang">${lang}</span>
+                  <span class="history-status-badge ${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
+                </div>
                 <span class="history-time">${time}</span>
               </div>
             </div>
@@ -166,6 +184,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         .join('');
     } catch (err) {
       historyList.innerHTML = '<div class="empty-history">Failed to load history</div>';
+    }
+  }
+
+  function formatStatusLabel(status) {
+    switch (status) {
+      case 'SUCCESS':
+        return 'Synced';
+      case 'ALREADY_SYNCED':
+        return 'Up to date';
+      case 'SKIPPED':
+        return 'Skipped';
+      case 'FAILED':
+        return 'Failed';
+      default:
+        return status;
     }
   }
 

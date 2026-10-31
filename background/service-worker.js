@@ -288,12 +288,36 @@ async function recordSyncHistory(details) {
 }
 
 /**
+ * Sets badge text and background on extension action icon and clears after 4 seconds
+ * @param {boolean} isSuccess
+ */
+function setExtensionBadge(isSuccess) {
+  try {
+    const text = isSuccess ? '\u2713' : '!';
+    const color = isSuccess ? '#3fb950' : '#f85149';
+
+    chrome.action.setBadgeText({ text });
+    chrome.action.setBadgeBackgroundColor({ color });
+
+    // Auto-clear badge after 4.5 seconds
+    setTimeout(() => {
+      chrome.action.setBadgeText({ text: '' });
+    }, 4500);
+  } catch (err) {
+    console.warn('[LeetSync Service Worker] Badge error:', err.message);
+  }
+}
+
+/**
  * Displays a Chrome notification to the user
  * @param {boolean} isSuccess
  * @param {string} title
  * @param {string} message
  */
 function showSyncNotification(isSuccess, title, message) {
+  // Update action icon badge
+  setExtensionBadge(isSuccess);
+
   try {
     chrome.notifications.create(
       `leetsync-${Date.now()}`,

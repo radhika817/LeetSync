@@ -68,15 +68,15 @@ async function parseGitHubError(response, contextAction) {
 
   switch (status) {
     case 401:
-      return new Error('GitHub authentication failed: Invalid or expired Personal Access Token.');
+      return new Error('Token expired or invalid: re-enter a valid GitHub PAT in the popup.');
     case 403:
-      return new Error(`Access forbidden: Token lacks permissions for ${contextAction}. Ensure the "repo" scope is enabled.`);
+      return new Error(`Access forbidden: Token lacks repository permissions for ${contextAction}. Ensure "repo" scope is selected on GitHub.`);
     case 404:
-      return new Error(`Resource not found (404) during ${contextAction}. Check repository name and permissions.`);
+      return new Error(`Repository or resource not found (404) during ${contextAction}. Verify repo owner/name and PAT access in the popup.`);
     case 409:
-      return new Error(`Conflict (409): File has been modified concurrently on GitHub.`);
+      return new Error(`Concurrent modification conflict (409) on GitHub. Please retry submission.`);
     case 422:
-      return new Error(`Validation failed (422) during ${contextAction}: ${serverMessage || 'Invalid request payload or branch.'}`);
+      return new Error(`Validation failed (422) during ${contextAction}: check branch name in popup (${serverMessage || 'invalid payload'}).`);
     default:
       return new Error(`GitHub API error (${status}) during ${contextAction}: ${serverMessage || response.statusText}`);
   }

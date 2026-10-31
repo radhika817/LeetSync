@@ -336,29 +336,72 @@ input:checked + .slider:before {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .history-item {
+  background: #232329;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 3px solid #3e3e4c;
+}
+
+.history-item.status-SUCCESS {
+  border-left-color: #3fb950;
+}
+
+.history-item.status-ALREADY_SYNCED {
+  border-left-color: #58a6ff;
+}
+
+.history-item.status-SKIPPED {
+  border-left-color: #d29922;
+}
+
+.history-item.status-FAILED {
+  border-left-color: #f85149;
+}
+
+.history-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #232329;
-  padding: 6px 8px;
-  border-radius: 5px;
-  font-size: 11px;
 }
 
 .history-title {
-  font-weight: 500;
+  font-weight: 600;
   color: #eff1f6;
-  max-width: 180px;
+  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.history-meta {
+.history-link {
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.history-link:hover {
+  text-decoration: underline;
+}
+
+.history-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.history-badges {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -368,8 +411,37 @@ input:checked + .slider:before {
   background: #33333d;
   color: #ffa116;
   font-size: 10px;
-  padding: 1px 5px;
+  font-weight: 500;
+  padding: 1px 6px;
   border-radius: 3px;
+}
+
+.history-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: capitalize;
+}
+
+.history-status-badge.SUCCESS {
+  background: rgba(46, 160, 67, 0.2);
+  color: #3fb950;
+}
+
+.history-status-badge.ALREADY_SYNCED {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+}
+
+.history-status-badge.SKIPPED {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+}
+
+.history-status-badge.FAILED {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
 }
 
 .history-time {
@@ -381,7 +453,7 @@ input:checked + .slider:before {
   font-size: 11px;
   color: #71717a;
   text-align: center;
-  padding: 8px;
+  padding: 10px;
 }
 
 .footer {
