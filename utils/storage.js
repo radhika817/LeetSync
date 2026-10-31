@@ -50,7 +50,7 @@ export async function setStorage(items) {
  * @param {number} maxEntries - default 20
  * @returns {Promise<void>}
  */
-export async function addSyncHistoryEntry(entry, maxEntries = 20) {
+export async function addSyncHistoryEntry(entry, maxEntries = 50) {
   try {
     const data = await getStorage(STORAGE_KEYS.SYNC_HISTORY);
     const history = Array.isArray(data[STORAGE_KEYS.SYNC_HISTORY]) ? data[STORAGE_KEYS.SYNC_HISTORY] : [];
