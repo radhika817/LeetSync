@@ -155,11 +155,12 @@ export function sanitizeFolderName(name) {
  * @param {Object} settings
  * @returns {string}
  */
-export function buildSubmissionPath(submission, settings = {}) {
+export function buildSubmissionPath(submission, settings = {}, version = null) {
   const number = (submission.number || submission.id || '').toString().trim();
   const sanitizedTitle = sanitizeTitle(submission.title);
   const ext = submission.extension?.startsWith('.') ? submission.extension : `.${submission.extension || 'txt'}`;
-  const fileName = `${number ? number + '-' : ''}${sanitizedTitle}${ext}`;
+  const versionSuffix = version && version > 1 ? `_v${version}` : '';
+  const fileName = `${number ? number + '-' : ''}${sanitizedTitle}${versionSuffix}${ext}`;
 
   const topicFolder = getTopicFolder(submission.tags);
   const langFolder = (submission.language || 'code').trim().toLowerCase();

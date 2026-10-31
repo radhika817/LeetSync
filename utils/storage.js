@@ -14,8 +14,9 @@ export const STORAGE_KEYS = {
 
 export const DEFAULT_SETTINGS = {
   groupByLanguage: true,
-  groupByTopic: false,
-  commitMessageTemplate: 'Solve {problem} ({difficulty}) [{language}]'
+  groupByTopic: true,
+  commitMessageTemplate: 'Solve {problem} ({difficulty}) [{language}]',
+  duplicateStrategy: 'update' // 'update' | 'skip' | 'version'
 };
 
 /**

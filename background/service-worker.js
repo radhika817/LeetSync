@@ -17,6 +17,9 @@ import {
   formatLanguageDisplay
 } from '../utils/leetcode.js';
 
+// In-memory lock to guard against concurrent syncs of the same file path
+const activeSyncLocks = new Set();
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('LeetSync service worker installed.');
 });
@@ -53,9 +56,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Handles the complete sync flow for an accepted submission:
  * 1. Validate submission payload
  * 2. Load stored GitHub credentials & settings
- * 3. Build target repository path and check if file exists
- * 4. Commit file to GitHub via PUT /repos/{owner}/{repo}/contents/{path}
- * 5. Display Chrome notification and append to sync history
+ * 3. Guard against concurrent syncs of the same file
+ * 4. Duplicate handling:
+ *    - If content is identical -> skip commit and notify "Already synced"
+ *    - If content differs:
+ *      * 'update'  -> update existing file using sha and "Update:" message
+ *      * 'skip'    -> skip commit and notify "Different code already exists; skipped"
+ *      * 'version' -> find next available version (e.g. Two-Sum_v2.cpp) and commit with "Add: ..."
+ * 5. Commit file to GitHub via utils/github.js
+ * 6. Display Chrome notification and append to sync history (max 50)
  *
  * @param {Object} submission
  * @param {string} problemUrl
@@ -81,7 +90,8 @@ async function handleSyncSubmission(submission, problemUrl) {
   const owner = config[STORAGE_KEYS.REPO_OWNER];
   const repo = config[STORAGE_KEYS.REPO_NAME];
   const branch = config[STORAGE_KEYS.BRANCH] || 'main';
-  const settings = config[STORAGE_KEYS.SETTINGS] || DEFAULT_SETTINGS;
+  const settings = { ...DEFAULT_SETTINGS, ...(config[STORAGE_KEYS.SETTINGS] || {}) };
+  const duplicateStrategy = settings.duplicateStrategy || 'update'; // 'update' | 'skip' | 'version'
 
   if (!token || !owner || !repo) {
     const errorMsg = 'GitHub repository is not configured. Please open LeetSync popup and connect your repo.';
@@ -89,41 +99,107 @@ async function handleSyncSubmission(submission, problemUrl) {
     throw new Error(errorMsg);
   }
 
-  // Construct target file path
-  // Path rule: [Topic]/[number]-[Title-Hyphenated].[ext]
-  const targetPath = buildSubmissionPath(submission, settings);
   const langDisplay = formatLanguageDisplay(submission.language);
   const problemName = `${submission.number ? submission.number + '. ' : ''}${submission.title}`;
 
-  console.log(`[LeetSync Service Worker] Preparing to sync "${problemName}" to "${targetPath}" on branch "${branch}"...`);
+  // Initial target file path
+  let targetPath = buildSubmissionPath(submission, settings);
+  const lockKey = `${owner}/${repo}:${branch}:${targetPath}`;
+
+  // Guard against concurrent syncs of the exact same target file
+  if (activeSyncLocks.has(lockKey)) {
+    console.warn(`[LeetSync Service Worker] Sync for "${targetPath}" is already in progress. Skipping concurrent request.`);
+    return { ok: false, error: 'A sync for this problem is already in progress.' };
+  }
+
+  activeSyncLocks.add(lockKey);
 
   try {
-    // Check if the file already exists to obtain its SHA and determine Add vs Update
-    const existingFile = await getFile(token, owner, repo, targetPath, branch);
-    const isUpdate = Boolean(existingFile && existingFile.sha);
-    const existingSha = existingFile?.sha;
+    console.log(`[LeetSync Service Worker] Checking existing file for "${problemName}" at "${targetPath}"...`);
 
-    // Check if content is already identical to avoid redundant commits
-    if (isUpdate && existingFile.content === submission.code) {
-      console.log(`[LeetSync Service Worker] Solution "${targetPath}" is identical to existing repo file. Skipping duplicate commit.`);
-      showSyncNotification(
-        true,
-        'Solution Already Up to Date',
-        `"${problemName}" (${langDisplay}) already matches GitHub.`
-      );
-      await recordSyncHistory({
-        submissionId: submission.id,
-        problemTitle: problemName,
-        language: langDisplay,
-        status: 'UP_TO_DATE',
-        path: targetPath,
-        commitUrl: existingFile.htmlUrl || null
-      });
-      return { ok: true, status: 'UP_TO_DATE', path: targetPath };
+    // Check if the base file already exists on GitHub
+    const existingFile = await getFile(token, owner, repo, targetPath, branch);
+    let targetSha = existingFile?.sha;
+    let actionPrefix = 'Add';
+
+    if (existingFile && existingFile.sha) {
+      // 1) Identical content check
+      if (existingFile.content === submission.code) {
+        console.log(`[LeetSync Service Worker] Solution at "${targetPath}" is identical. Skipping commit.`);
+        showSyncNotification(
+          true,
+          'Already Synced',
+          `"${problemName}" (${langDisplay}) is identical to the solution on GitHub.`
+        );
+        await recordSyncHistory({
+          submissionId: submission.id,
+          problemTitle: problemName,
+          language: langDisplay,
+          status: 'ALREADY_SYNCED',
+          path: targetPath,
+          commitUrl: null
+        });
+        return { ok: true, status: 'ALREADY_SYNCED', path: targetPath };
+      }
+
+      // 2) Content differs -> apply duplicateStrategy
+      console.log(`[LeetSync Service Worker] File exists but differs. Applying strategy: "${duplicateStrategy}"`);
+
+      if (duplicateStrategy === 'skip') {
+        showSyncNotification(
+          true,
+          'Skipped Existing Solution',
+          `"${problemName}" has existing solution with different code. Commit skipped.`
+        );
+        await recordSyncHistory({
+          submissionId: submission.id,
+          problemTitle: problemName,
+          language: langDisplay,
+          status: 'SKIPPED',
+          path: targetPath,
+          commitUrl: null
+        });
+        return { ok: true, status: 'SKIPPED', path: targetPath };
+      } else if (duplicateStrategy === 'version') {
+        // Find next available version number (e.g., Two-Sum_v2.cpp, Two-Sum_v3.cpp...)
+        let version = 2;
+        let versionedPath = buildSubmissionPath(submission, settings, version);
+        let versionFile = await getFile(token, owner, repo, versionedPath, branch);
+
+        while (versionFile && versionFile.sha) {
+          if (versionFile.content === submission.code) {
+            // Found a version that is already identical!
+            showSyncNotification(
+              true,
+              'Already Synced',
+              `"${problemName}" matches existing version ${version}.`
+            );
+            await recordSyncHistory({
+              submissionId: submission.id,
+              problemTitle: `${problemName} (v${version})`,
+              language: langDisplay,
+              status: 'ALREADY_SYNCED',
+              path: versionedPath,
+              commitUrl: null
+            });
+            return { ok: true, status: 'ALREADY_SYNCED', path: versionedPath };
+          }
+          version++;
+          versionedPath = buildSubmissionPath(submission, settings, version);
+          versionFile = await getFile(token, owner, repo, versionedPath, branch);
+        }
+
+        // New version found
+        targetPath = versionedPath;
+        targetSha = undefined; // New file
+        actionPrefix = `Add (v${version})`;
+      } else {
+        // 'update' strategy (default)
+        actionPrefix = 'Update';
+      }
     }
 
-    // Default commit message: "Add: 1. Two Sum (C++)" or "Update: 1. Two Sum (C++)"
-    const actionPrefix = isUpdate ? 'Update' : 'Add';
+    // Prepare commit message
     const commitMessage = `${actionPrefix}: ${problemName} (${langDisplay})`;
 
     // Upload / Commit file to GitHub
@@ -131,20 +207,20 @@ async function handleSyncSubmission(submission, problemUrl) {
       path: targetPath,
       content: submission.code,
       message: commitMessage,
-      sha: existingSha,
+      sha: targetSha,
       branch: branch
     });
 
-    console.log(`[LeetSync Service Worker] Successfully synced to GitHub! Commit: ${result.commitSha}`);
+    console.log(`[LeetSync Service Worker] Successfully synced! Commit: ${result.commitSha}`);
 
-    // Show desktop notification
+    // Desktop notification
     showSyncNotification(
       true,
       `Synced to GitHub! (${actionPrefix})`,
       `${problemName} (${langDisplay}) \u2192 ${targetPath}`
     );
 
-    // Record in sync history (storage)
+    // Save in storage sync history
     await recordSyncHistory({
       submissionId: submission.id,
       problemTitle: problemName,
@@ -163,7 +239,7 @@ async function handleSyncSubmission(submission, problemUrl) {
     };
   } catch (error) {
     const errorMsg = error.message || 'Unknown GitHub API error';
-    console.error(`[LeetSync Service Worker] Failed to commit "${targetPath}":`, errorMsg);
+    console.error(`[LeetSync Service Worker] Sync failed for "${targetPath}":`, errorMsg);
 
     showSyncNotification(
       false,
@@ -181,6 +257,9 @@ async function handleSyncSubmission(submission, problemUrl) {
     });
 
     throw error;
+  } finally {
+    // Release in-memory lock
+    activeSyncLocks.delete(lockKey);
   }
 }
 
