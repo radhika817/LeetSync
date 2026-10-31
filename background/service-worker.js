@@ -4,8 +4,18 @@
  * Token is read exclusively in this module and never logged or exposed.
  */
 
-import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage.js';
-import { verifyRepo } from '../utils/github.js';
+import {
+  getStorage,
+  setStorage,
+  addSyncHistoryEntry,
+  STORAGE_KEYS,
+  DEFAULT_SETTINGS
+} from '../utils/storage.js';
+import { verifyRepo, getFile, putFile } from '../utils/github.js';
+import {
+  buildSubmissionPath,
+  formatLanguageDisplay
+} from '../utils/leetcode.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('LeetSync service worker installed.');
@@ -22,12 +32,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'SUBMISSION_ACCEPTED') {
     const { submission, url } = message.payload || {};
-    if (submission) {
-      console.log(
-        `[LeetSync Service Worker] Received submission for "${submission.number}. ${submission.title}" (${submission.language}${submission.extension}) from ${url}`
-      );
-    }
-    sendResponse({ ok: true, received: submission?.id });
+    handleSyncSubmission(submission, url)
+      .then(sendResponse)
+      .catch((err) => {
+        console.error('[LeetSync Service Worker] Sync error:', err.message);
+        sendResponse({ ok: false, error: err.message });
+      });
     return true;
   }
 
@@ -38,6 +48,193 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
+/**
+ * Handles the complete sync flow for an accepted submission:
+ * 1. Validate submission payload
+ * 2. Load stored GitHub credentials & settings
+ * 3. Build target repository path and check if file exists
+ * 4. Commit file to GitHub via PUT /repos/{owner}/{repo}/contents/{path}
+ * 5. Display Chrome notification and append to sync history
+ *
+ * @param {Object} submission
+ * @param {string} problemUrl
+ * @returns {Promise<Object>}
+ */
+async function handleSyncSubmission(submission, problemUrl) {
+  if (!submission || !submission.code || !submission.title) {
+    const errorMsg = 'Invalid submission data: missing code or title.';
+    showSyncNotification(false, 'Validation Failed', errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  // Load GitHub credentials and settings from storage
+  const config = await getStorage([
+    STORAGE_KEYS.GITHUB_TOKEN,
+    STORAGE_KEYS.REPO_OWNER,
+    STORAGE_KEYS.REPO_NAME,
+    STORAGE_KEYS.BRANCH,
+    STORAGE_KEYS.SETTINGS
+  ]);
+
+  const token = config[STORAGE_KEYS.GITHUB_TOKEN];
+  const owner = config[STORAGE_KEYS.REPO_OWNER];
+  const repo = config[STORAGE_KEYS.REPO_NAME];
+  const branch = config[STORAGE_KEYS.BRANCH] || 'main';
+  const settings = config[STORAGE_KEYS.SETTINGS] || DEFAULT_SETTINGS;
+
+  if (!token || !owner || !repo) {
+    const errorMsg = 'GitHub repository is not configured. Please open LeetSync popup and connect your repo.';
+    showSyncNotification(false, 'Not Connected to GitHub', errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  // Construct target file path
+  // Path rule: [Topic]/[number]-[Title-Hyphenated].[ext]
+  const targetPath = buildSubmissionPath(submission, settings);
+  const langDisplay = formatLanguageDisplay(submission.language);
+  const problemName = `${submission.number ? submission.number + '. ' : ''}${submission.title}`;
+
+  console.log(`[LeetSync Service Worker] Preparing to sync "${problemName}" to "${targetPath}" on branch "${branch}"...`);
+
+  try {
+    // Check if the file already exists to obtain its SHA and determine Add vs Update
+    const existingFile = await getFile(token, owner, repo, targetPath, branch);
+    const isUpdate = Boolean(existingFile && existingFile.sha);
+    const existingSha = existingFile?.sha;
+
+    // Check if content is already identical to avoid redundant commits
+    if (isUpdate && existingFile.content === submission.code) {
+      console.log(`[LeetSync Service Worker] Solution "${targetPath}" is identical to existing repo file. Skipping duplicate commit.`);
+      showSyncNotification(
+        true,
+        'Solution Already Up to Date',
+        `"${problemName}" (${langDisplay}) already matches GitHub.`
+      );
+      await recordSyncHistory({
+        submissionId: submission.id,
+        problemTitle: problemName,
+        language: langDisplay,
+        status: 'UP_TO_DATE',
+        path: targetPath,
+        commitUrl: existingFile.htmlUrl || null
+      });
+      return { ok: true, status: 'UP_TO_DATE', path: targetPath };
+    }
+
+    // Default commit message: "Add: 1. Two Sum (C++)" or "Update: 1. Two Sum (C++)"
+    const actionPrefix = isUpdate ? 'Update' : 'Add';
+    const commitMessage = `${actionPrefix}: ${problemName} (${langDisplay})`;
+
+    // Upload / Commit file to GitHub
+    const result = await putFile(token, owner, repo, {
+      path: targetPath,
+      content: submission.code,
+      message: commitMessage,
+      sha: existingSha,
+      branch: branch
+    });
+
+    console.log(`[LeetSync Service Worker] Successfully synced to GitHub! Commit: ${result.commitSha}`);
+
+    // Show desktop notification
+    showSyncNotification(
+      true,
+      `Synced to GitHub! (${actionPrefix})`,
+      `${problemName} (${langDisplay}) \u2192 ${targetPath}`
+    );
+
+    // Record in sync history (storage)
+    await recordSyncHistory({
+      submissionId: submission.id,
+      problemTitle: problemName,
+      language: langDisplay,
+      status: 'SUCCESS',
+      path: targetPath,
+      commitUrl: result.htmlUrl || `https://github.com/${owner}/${repo}/blob/${branch}/${targetPath}`,
+      action: actionPrefix
+    });
+
+    return {
+      ok: true,
+      status: 'SUCCESS',
+      path: targetPath,
+      commitSha: result.commitSha
+    };
+  } catch (error) {
+    const errorMsg = error.message || 'Unknown GitHub API error';
+    console.error(`[LeetSync Service Worker] Failed to commit "${targetPath}":`, errorMsg);
+
+    showSyncNotification(
+      false,
+      'Sync Failed',
+      `Could not sync "${problemName}": ${errorMsg}`
+    );
+
+    await recordSyncHistory({
+      submissionId: submission.id,
+      problemTitle: problemName,
+      language: langDisplay,
+      status: 'FAILED',
+      path: targetPath,
+      error: errorMsg
+    });
+
+    throw error;
+  }
+}
+
+/**
+ * Appends entry to sync history (capped at 50)
+ * @param {Object} details
+ */
+async function recordSyncHistory(details) {
+  try {
+    await addSyncHistoryEntry(
+      {
+        id: details.submissionId || Date.now().toString(),
+        problemTitle: details.problemTitle,
+        language: details.language,
+        status: details.status,
+        path: details.path,
+        commitUrl: details.commitUrl || null,
+        error: details.error || null,
+        timestamp: Date.now()
+      },
+      50
+    );
+  } catch (err) {
+    console.warn('[LeetSync Service Worker] Could not record sync history:', err.message);
+  }
+}
+
+/**
+ * Displays a Chrome notification to the user
+ * @param {boolean} isSuccess
+ * @param {string} title
+ * @param {string} message
+ */
+function showSyncNotification(isSuccess, title, message) {
+  try {
+    chrome.notifications.create(
+      `leetsync-${Date.now()}`,
+      {
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('assets/icons/icon128.png'),
+        title: title,
+        message: message,
+        priority: 2
+      },
+      (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[LeetSync Service Worker] Notification error:', chrome.runtime.lastError.message);
+        }
+      }
+    );
+  } catch (error) {
+    console.warn('[LeetSync Service Worker] Failed to create notification:', error.message);
+  }
+}
 
 /**
  * Verifies repository access and saves verified config securely
