@@ -12,30 +12,97 @@
       <div class="badge">LS</div>
       <h2>LeetSync</h2>
     </div>
-    <span class="status-indicator" id="connectionBadge">Disconnected</span>
+    <span class="status-indicator" id="connectionBadge">Not Connected</span>
   </div>
 
   <div class="container">
-    <div id="authSection">
+    <!-- Status Message Alert -->
+    <div id="statusAlert" class="status-alert hidden"></div>
+
+    <!-- 1) GitHub Section -->
+    <section class="card">
+      <h3 class="section-title">GitHub Configuration</h3>
+      
       <div class="form-group">
-        <label for="ghToken">GitHub Personal Access Token (repo scope)</label>
-        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" />
-        <small class="hint">Stored only in extension storage and read exclusively in the background.</small>
+        <label for="ghToken">Personal Access Token (PAT)</label>
+        <div class="input-wrapper">
+          <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" />
+          <span id="tokenStatusText" class="token-status-tag hidden">Token saved</span>
+        </div>
+        <small class="hint">Requires 'repo' scope. Only read inside the background worker.</small>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label for="repoOwner">Owner / User</label>
+          <input type="text" id="repoOwner" placeholder="e.g. octocat" />
+        </div>
+        <div class="form-group flex-1">
+          <label for="repoName">Repository</label>
+          <input type="text" id="repoName" placeholder="e.g. leetcode-solutions" />
+        </div>
       </div>
 
       <div class="form-group">
-        <label for="ghRepo">Repository (e.g. username/LeetCode-Solutions)</label>
-        <input type="text" id="ghRepo" placeholder="octocat/leetcode-solutions" />
+        <label for="branch">Branch</label>
+        <input type="text" id="branch" placeholder="main" value="main" />
       </div>
 
-      <button id="saveBtn" class="btn btn-primary">Save & Connect</button>
-    </div>
+      <button id="verifyBtn" class="btn btn-primary">
+        <span id="verifyBtnSpinner" class="spinner hidden"></span>
+        <span id="verifyBtnText">Save &amp; Verify</span>
+      </button>
+    </section>
 
-    <div id="statusMessage" class="status-message hidden"></div>
+    <!-- 2) Settings Section -->
+    <section class="card">
+      <h3 class="section-title">Sync Settings</h3>
 
-    <div class="footer">
-      <p>Solve on LeetCode &bull; Auto-sync to GitHub</p>
-    </div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <label class="toggle-label" for="toggleLangFolder">Group by Language</label>
+          <span class="toggle-desc">e.g. cpp/Two-Sum.cpp or python/Two-Sum.py</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggleLangFolder" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <label class="toggle-label" for="toggleTopicFolder">Organize by Topic</label>
+          <span class="toggle-desc">e.g. Arrays/Two-Sum.cpp</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggleTopicFolder" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="form-group mt-2">
+        <label for="commitTemplate">Commit Message Template</label>
+        <input type="text" id="commitTemplate" value="Solve {problem} ({difficulty}) [{language}]" />
+        <small class="hint">Variables: {problem}, {difficulty}, {language}, {id}</small>
+      </div>
+
+      <button id="saveSettingsBtn" class="btn btn-secondary">Save Settings</button>
+    </section>
+
+    <!-- 3) Status & History Section -->
+    <section class="card">
+      <div class="section-header">
+        <h3 class="section-title">Recent Syncs</h3>
+        <span class="subtext" id="historyCount">0 syncs</span>
+      </div>
+      <div id="historyList" class="history-list">
+        <div class="empty-history">No solutions synced yet.</div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Solve on LeetCode &bull; Auto-sync to GitHub</span>
+    </footer>
   </div>
 
   <script type="module" src="popup.js"></script>

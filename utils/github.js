@@ -1,22 +1,54 @@
 /**
  * GitHub API helper utilities
- * Token is passed directly to functions and never logged or exposed.
+ * Token is passed into functions and never logged or exposed.
  */
 
-export async function checkRepository(token, repo) {
+/**
+ * Validates repository accessibility and token permissions
+ * @param {string} token - GitHub Personal Access Token
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @returns {Promise<{ ok: boolean, data?: Object, error?: string }>}
+ */
+export async function verifyRepository(token, owner, repo) {
   try {
-    const response = await fetch(`https://api.github.com/repos/${repo}`, {
+    if (!token) {
+      return { ok: false, error: 'Personal Access Token is missing.' };
+    }
+    if (!owner || !repo) {
+      return { ok: false, error: 'Repository owner and name are required.' };
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, {
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github.v3+json'
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'LeetSync-Chrome-Extension'
       }
     });
+
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || `GitHub error HTTP ${response.status}`);
+      const errorJson = await response.json().catch(() => ({}));
+      let msg = errorJson.message || `HTTP ${response.status}`;
+      if (response.status === 401) {
+        msg = 'Invalid GitHub Token or token expired.';
+      } else if (response.status === 404) {
+        msg = `Repository "${owner}/${repo}" not found or token lacks 'repo' permission.`;
+      }
+      return { ok: false, error: msg };
     }
-    return await response.json();
+
+    const data = await response.json();
+    return {
+      ok: true,
+      data: {
+        fullName: data.full_name,
+        isPrivate: data.private,
+        defaultBranch: data.default_branch
+      }
+    };
   } catch (error) {
-    throw new Error(`Repository check failed: ${error.message}`);
+    return { ok: false, error: `Network error verifying repo: ${error.message}` };
   }
 }
