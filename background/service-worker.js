@@ -20,6 +20,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  if (message.action === 'SUBMISSION_ACCEPTED') {
+    const { submissionId, url } = message.payload || {};
+    console.log(`[LeetSync Service Worker] Received Accepted submission #${submissionId} from ${url}`);
+    sendResponse({ ok: true, received: submissionId });
+    return true;
+  }
+
   if (message.action === 'PING') {
     sendResponse({ ok: true, status: 'PONG' });
     return true;
