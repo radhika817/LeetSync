@@ -21,9 +21,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'SUBMISSION_ACCEPTED') {
-    const { submissionId, url } = message.payload || {};
-    console.log(`[LeetSync Service Worker] Received Accepted submission #${submissionId} from ${url}`);
-    sendResponse({ ok: true, received: submissionId });
+    const { submission, url } = message.payload || {};
+    if (submission) {
+      console.log(
+        `[LeetSync Service Worker] Received submission for "${submission.number}. ${submission.title}" (${submission.language}${submission.extension}) from ${url}`
+      );
+    }
+    sendResponse({ ok: true, received: submission?.id });
     return true;
   }
 

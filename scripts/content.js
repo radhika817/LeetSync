@@ -3,13 +3,23 @@
  * - Injects scripts/inject.js into the main page DOM.
  * - Listens for window.postMessage from inject.js.
  * - Deduplicates submission IDs.
- * - Forwards detected submissions to background service worker.
+ * - Fetches full submission details via LeetCode GraphQL using cookies/credentials.
+ * - Forwards validated normalized submission to background service worker.
  */
 
-(function () {
+(async function () {
   'use strict';
 
   console.log('LeetSync loaded');
+
+  // Dynamic import of leetcode.js utility inside content script
+  let leetcodeUtil;
+  try {
+    const utilUrl = chrome.runtime.getURL('utils/leetcode.js');
+    leetcodeUtil = await import(utilUrl);
+  } catch (err) {
+    console.error('[LeetSync] Failed to load leetcode.js utility:', err.message);
+  }
 
   // Track forwarded submission IDs to prevent duplicate triggers
   const seenSubmissions = new Set();
@@ -36,7 +46,7 @@
   injectMainWorldScript('scripts/inject.js');
 
   // Listen for window postMessages from inject.js
-  window.addEventListener('message', (event) => {
+  window.addEventListener('message', async (event) => {
     // Only accept messages from the current window and identified source
     if (event.source !== window) {
       return;
@@ -55,28 +65,39 @@
     }
     seenSubmissions.add(submissionId);
 
-    const currentUrl = window.location.href;
+    console.log(`[LeetSync] Processing Accepted submission #${submissionId}...`);
 
-    console.log(
-      `[LeetSync] Forwarding Accepted submission #${submissionId} to background service worker (Problem URL: ${currentUrl})`
-    );
-
-    // Forward to service worker
-    chrome.runtime.sendMessage(
-      {
-        action: 'SUBMISSION_ACCEPTED',
-        payload: {
-          submissionId: submissionId,
-          url: currentUrl
-        }
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn('[LeetSync] Service worker response error:', chrome.runtime.lastError.message);
-        } else if (response) {
-          console.log('[LeetSync] Background worker received submission:', response);
-        }
+    try {
+      if (!leetcodeUtil || !leetcodeUtil.fetchSubmissionDetails) {
+        throw new Error('LeetCode utility module is not ready.');
       }
-    );
+
+      // Fetch full details via GraphQL with user cookies
+      const normalizedSubmission = await leetcodeUtil.fetchSubmissionDetails(submissionId);
+
+      console.log(
+        `[LeetSync] Successfully fetched submission details: "${normalizedSubmission.number}. ${normalizedSubmission.title}" (${normalizedSubmission.language})`
+      );
+
+      // Forward normalized submission to background service worker
+      chrome.runtime.sendMessage(
+        {
+          action: 'SUBMISSION_ACCEPTED',
+          payload: {
+            submission: normalizedSubmission,
+            url: window.location.href
+          }
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[LeetSync] Background service worker error:', chrome.runtime.lastError.message);
+          } else if (response) {
+            console.log('[LeetSync] Background worker status:', response);
+          }
+        }
+      );
+    } catch (error) {
+      console.error(`[LeetSync] Failed to process submission #${submissionId}:`, error.message);
+    }
   });
 })();

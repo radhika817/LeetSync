@@ -42,7 +42,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "scripts/inject.js"
+        "scripts/inject.js",
+        "utils/leetcode.js"
       ],
       "matches": [
         "https://leetcode.com/*"
