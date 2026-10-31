@@ -7,113 +7,140 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="header">
+  <!-- Fixed Header -->
+  <header class="header">
     <div class="logo-title">
       <img src="../assets/icons/icon48.png" class="logo-img" alt="LeetSync Logo" />
-      <h2>LeetSync</h2>
+      <div class="app-info">
+        <h2>LeetSync</h2>
+        <span class="app-tagline">LeetCode to GitHub</span>
+      </div>
     </div>
-    <span class="status-indicator" id="connectionBadge">Not Connected</span>
-  </div>
+    <span class="status-indicator" id="connectionBadge">Disconnected</span>
+  </header>
 
-  <div class="container">
-    <!-- Status Message Alert -->
-    <div id="statusAlert" class="status-alert hidden"></div>
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-sync">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+      Sync
+    </button>
+    <button class="tab-btn" data-tab="tab-settings">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+    <button class="tab-btn" data-tab="tab-history">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      History
+    </button>
+  </nav>
 
-    <!-- 1) GitHub Section -->
-    <section class="card">
-      <h3 class="section-title">GitHub Configuration</h3>
-      
-      <div class="form-group">
-        <label for="ghToken">Personal Access Token (PAT)</label>
-        <div class="input-wrapper">
-          <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" />
-          <span id="tokenStatusText" class="token-status-tag hidden">Token saved</span>
+  <!-- Global Alert banner -->
+  <div id="statusAlert" class="status-alert hidden"></div>
+
+  <!-- Main Scrollable Body -->
+  <main class="tab-content">
+    <!-- TAB 1: SYNC / GITHUB CONFIG -->
+    <div id="tab-sync" class="tab-pane active">
+      <section class="card">
+        <h3 class="section-title">GitHub Connection</h3>
+        
+        <div class="form-group">
+          <label for="ghToken">Personal Access Token</label>
+          <div class="input-wrapper">
+            <input type="password" id="ghToken" placeholder="ghp_... or github_pat_..." autocomplete="off" />
+            <span id="tokenStatusText" class="token-status-tag hidden">Saved</span>
+          </div>
+          <small class="hint">Requires 'repo' or 'contents:read/write' permission.</small>
         </div>
-        <small class="hint">Requires 'repo' scope. Only read inside the background worker.</small>
-      </div>
 
-      <div class="form-row">
-        <div class="form-group flex-1">
-          <label for="repoOwner">Owner / User</label>
-          <input type="text" id="repoOwner" placeholder="e.g. octocat" />
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="repoOwner">Owner / User</label>
+            <input type="text" id="repoOwner" placeholder="e.g. octocat" />
+          </div>
+          <div class="form-group flex-1">
+            <label for="repoName">Repository</label>
+            <input type="text" id="repoName" placeholder="e.g. leetcode" />
+          </div>
         </div>
-        <div class="form-group flex-1">
-          <label for="repoName">Repository</label>
-          <input type="text" id="repoName" placeholder="e.g. leetcode-solutions" />
+
+        <div class="form-group">
+          <label for="branch">Target Branch</label>
+          <input type="text" id="branch" placeholder="main" value="main" />
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="branch">Branch</label>
-        <input type="text" id="branch" placeholder="main" value="main" />
-      </div>
+        <button id="verifyBtn" class="btn btn-primary">
+          <span id="verifyBtnSpinner" class="spinner hidden"></span>
+          <span id="verifyBtnText">Save &amp; Verify Connection</span>
+        </button>
+      </section>
+    </div>
 
-      <button id="verifyBtn" class="btn btn-primary">
-        <span id="verifyBtnSpinner" class="spinner hidden"></span>
-        <span id="verifyBtnText">Save &amp; Verify</span>
-      </button>
-    </section>
+    <!-- TAB 2: SETTINGS -->
+    <div id="tab-settings" class="tab-pane">
+      <section class="card">
+        <h3 class="section-title">File Organization</h3>
 
-    <!-- 2) Settings Section -->
-    <section class="card">
-      <h3 class="section-title">Sync Settings</h3>
-
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <label class="toggle-label" for="toggleLangFolder">Group by Language</label>
-          <span class="toggle-desc">e.g. cpp/Two-Sum.cpp or python/Two-Sum.py</span>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggleLangFolder">Group by Language</label>
+            <span class="toggle-desc">e.g. Arrays/cpp/1-Two-Sum.cpp</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleLangFolder" checked />
+            <span class="slider"></span>
+          </label>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="toggleLangFolder" checked />
-          <span class="slider"></span>
-        </label>
-      </div>
 
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <label class="toggle-label" for="toggleTopicFolder">Organize by Topic</label>
-          <span class="toggle-desc">e.g. Arrays/Two-Sum.cpp</span>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggleTopicFolder">Organize by Topic</label>
+            <span class="toggle-desc">e.g. Arrays/1-Two-Sum.cpp</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleTopicFolder" checked />
+            <span class="slider"></span>
+          </label>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="toggleTopicFolder" />
-          <span class="slider"></span>
-        </label>
-      </div>
 
-      <div class="form-group mt-2">
-        <label for="duplicateStrategy">On Different Code</label>
-        <select id="duplicateStrategy" class="select-field">
-          <option value="update">Update existing file</option>
-          <option value="skip">Skip commit</option>
-          <option value="version">Save as new version (e.g. _v2.cpp)</option>
-        </select>
-        <small class="hint">Action taken when problem already exists with different code.</small>
-      </div>
+        <div class="form-group mt-3">
+          <label for="duplicateStrategy">On Different Code</label>
+          <select id="duplicateStrategy" class="select-field">
+            <option value="update">Update existing file</option>
+            <option value="skip">Skip commit</option>
+            <option value="version">Save as new version (e.g. _v2.cpp)</option>
+          </select>
+          <small class="hint">When problem exists but code has changed.</small>
+        </div>
 
-      <div class="form-group mt-2">
-        <label for="commitTemplate">Commit Message Template</label>
-        <input type="text" id="commitTemplate" value="Solve {problem} ({difficulty}) [{language}]" />
-        <small class="hint">Variables: {problem}, {difficulty}, {language}, {id}</small>
-      </div>
+        <div class="form-group mt-3">
+          <label for="commitTemplate">Commit Message Template</label>
+          <input type="text" id="commitTemplate" value="Solve {problem} ({difficulty}) [{language}]" />
+          <small class="hint">{problem}, {difficulty}, {language}, {id}</small>
+        </div>
 
-      <button id="saveSettingsBtn" class="btn btn-secondary">Save Settings</button>
-    </section>
+        <button id="saveSettingsBtn" class="btn btn-secondary mt-2">Save Settings</button>
+      </section>
+    </div>
 
-    <!-- 3) Status & History Section -->
-    <section class="card">
-      <div class="section-header">
-        <h3 class="section-title">Recent Syncs</h3>
-        <span class="subtext" id="historyCount">0 syncs</span>
-      </div>
-      <div id="historyList" class="history-list">
-        <div class="empty-history">No solutions synced yet.</div>
-      </div>
-    </section>
+    <!-- TAB 3: RECENT SYNCS -->
+    <div id="tab-history" class="tab-pane">
+      <section class="card">
+        <div class="section-header">
+          <h3 class="section-title">Recent Submissions</h3>
+          <span class="subtext" id="historyCount">0 syncs</span>
+        </div>
+        <div id="historyList" class="history-list">
+          <div class="empty-history">No solutions synced yet.</div>
+        </div>
+      </section>
+    </div>
+  </main>
 
-    <footer class="footer">
-      <span>Solve on LeetCode &bull; Auto-sync to GitHub</span>
-    </footer>
-  </div>
+  <footer class="footer">
+    <span>Solve on LeetCode &bull; Auto-sync to GitHub</span>
+  </footer>
 
   <script type="module" src="popup.js"></script>
 </body>

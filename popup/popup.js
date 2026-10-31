@@ -35,6 +35,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   const historyList = document.getElementById('historyList');
   const historyCount = document.getElementById('historyCount');
 
+  // DOM Elements - Tabs
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-tab');
+      tabButtons.forEach((b) => b.classList.remove('active'));
+      tabPanes.forEach((p) => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      const targetPane = document.getElementById(targetId);
+      if (targetPane) {
+        targetPane.classList.add('active');
+        if (targetId === 'tab-history') {
+          renderSyncHistory();
+        }
+      }
+    });
+  });
+
   // Load existing state from storage
   await loadInitialState();
 
