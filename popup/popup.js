@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements - Settings Section
   const toggleLangFolder = document.getElementById('toggleLangFolder');
   const toggleTopicFolder = document.getElementById('toggleTopicFolder');
+  const duplicateStrategySelect = document.getElementById('duplicateStrategy');
   const commitTemplate = document.getElementById('commitTemplate');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
@@ -86,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const settings = {
         groupByLanguage: toggleLangFolder.checked,
         groupByTopic: toggleTopicFolder.checked,
+        duplicateStrategy: duplicateStrategySelect.value || 'update',
         commitMessageTemplate: commitTemplate.value.trim() || DEFAULT_SETTINGS.commitMessageTemplate
       };
 
@@ -125,6 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const settings = data[STORAGE_KEYS.SETTINGS] || DEFAULT_SETTINGS;
       toggleLangFolder.checked = settings.groupByLanguage !== false;
       toggleTopicFolder.checked = Boolean(settings.groupByTopic);
+      duplicateStrategySelect.value = settings.duplicateStrategy || 'update';
       commitTemplate.value = settings.commitMessageTemplate || DEFAULT_SETTINGS.commitMessageTemplate;
 
       // Populate History

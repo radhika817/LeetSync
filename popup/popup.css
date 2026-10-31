@@ -142,7 +142,8 @@ label {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+select.select-field {
   width: 100%;
   padding: 7px 9px;
   background: #242429;
@@ -154,8 +155,13 @@ input[type="password"] {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+select.select-field {
+  cursor: pointer;
+}
+
 input[type="text"]:focus,
-input[type="password"]:focus {
+input[type="password"]:focus,
+select.select-field:focus {
   border-color: #ffa116;
   box-shadow: 0 0 0 1px #ffa116;
 }

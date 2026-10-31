@@ -81,6 +81,16 @@
       </div>
 
       <div class="form-group mt-2">
+        <label for="duplicateStrategy">On Different Code</label>
+        <select id="duplicateStrategy" class="select-field">
+          <option value="update">Update existing file</option>
+          <option value="skip">Skip commit</option>
+          <option value="version">Save as new version (e.g. _v2.cpp)</option>
+        </select>
+        <small class="hint">Action taken when problem already exists with different code.</small>
+      </div>
+
+      <div class="form-group mt-2">
         <label for="commitTemplate">Commit Message Template</label>
         <input type="text" id="commitTemplate" value="Solve {problem} ({difficulty}) [{language}]" />
         <small class="hint">Variables: {problem}, {difficulty}, {language}, {id}</small>
