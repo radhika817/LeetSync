@@ -5,7 +5,7 @@
  */
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Setup defaults or handle install events
+  console.log('LeetSync service worker installed.');
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -14,3 +14,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return true;
 });
+

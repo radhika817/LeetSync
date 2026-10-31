@@ -1,7 +1,9 @@
 /**
- * Content script running in LeetCode page context.
- * Injects page script if needed and relays events to the background worker.
+ * Content script running on LeetCode problem pages.
  */
 
-// Basic heartbeat check
-// Ready to observe submissions in step 2
+try {
+  console.log('LeetSync loaded');
+} catch (error) {
+  console.error('LeetSync content script initialization error:', error.message);
+}

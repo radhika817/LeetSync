@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+.env.*
+
+# Extension private keys & certificates
+*.pem
+
+# Logs
+*.log
