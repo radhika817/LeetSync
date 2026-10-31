@@ -49,13 +49,11 @@ body::-webkit-scrollbar-thumb {
   letter-spacing: -0.2px;
 }
 
-.badge {
-  background: #ffa116;
-  color: #121212;
-  font-weight: 800;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
+.logo-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 .status-indicator {
