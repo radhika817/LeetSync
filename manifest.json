@@ -15,12 +15,18 @@
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
+      "19": "assets/icons/icon19.png",
+      "32": "assets/icons/icon32.png",
+      "38": "assets/icons/icon38.png",
       "48": "assets/icons/icon48.png",
       "128": "assets/icons/icon128.png"
     }
   },
   "icons": {
     "16": "assets/icons/icon16.png",
+    "19": "assets/icons/icon19.png",
+    "32": "assets/icons/icon32.png",
+    "38": "assets/icons/icon38.png",
     "48": "assets/icons/icon48.png",
     "128": "assets/icons/icon128.png"
   },
