@@ -26,17 +26,29 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Message listener for popup & content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Validate sender originates from our own extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[LeetSync Service Worker] Rejected message from unauthorized sender:', sender.id);
+    return false;
+  }
+
   if (message.action === 'VERIFY_GITHUB') {
     handleVerifyGithub(message.payload)
-      .then(sendResponse)
+      .then((res) => sendResponse(res))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // Keep message channel open for async response
   }
 
   if (message.action === 'SUBMISSION_ACCEPTED') {
+    // Ensure submission syncs only originate from leetcode.com problem tabs
+    if (!sender.tab || !sender.tab.url || !sender.tab.url.startsWith('https://leetcode.com/problems/')) {
+      sendResponse({ ok: false, error: 'Unauthorized submission source tab.' });
+      return false;
+    }
+
     const { submission, url } = message.payload || {};
     handleSyncSubmission(submission, url)
-      .then(sendResponse)
+      .then((res) => sendResponse(res))
       .catch((err) => {
         console.error('[LeetSync Service Worker] Sync error:', err.message);
         sendResponse({ ok: false, error: err.message });
